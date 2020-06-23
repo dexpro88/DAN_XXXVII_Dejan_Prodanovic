@@ -11,32 +11,36 @@ namespace DAN_XXXVII_Dejan_Prodanovic
     {
         public static Semaphore Semaphore { get; set; }
         Random timeRnd = new Random();
-        Thread[] trucks = new Thread[10];
+        Dictionary<int,Thread> trucks = new Dictionary<int,Thread>();
+        Dictionary<int,Thread> destinations = new Dictionary<int,Thread>();
+
         static int counter = 0;
+        bool isArrived = false;
+        bool isLate = false;
 
         public TruckLoad()
         {
             Semaphore = new Semaphore(2, 3);
         }
 
-        public void PrepareTrucks()
+        public void PrepareTrucks(List<int> bestRoutes)
         {
-            for (int i = 0; i < 10; i++)
+            int counter = 1;
+            foreach (var route in bestRoutes)
             {
-                trucks[i] = new Thread(new ThreadStart(LoadOn));
-                trucks[i].Name = String.Format("Kamion{0}",i+1);
-                //Thread t = new Thread(new ParameterizedThreadStart(LoadOn));
-                trucks[i].Start();
+                Thread thread = new Thread(new ThreadStart(LoadOn));
+                thread.Name = String.Format("Kamion{0}", counter++);
+                trucks.Add(route, thread);
+                thread.Start();
             }
-
             foreach (var truck in trucks)
             {
-                truck.Join();
+                truck.Value.Join();
             }
         }
         public void LoadOn()
         {
-            Console.WriteLine("{0} ceka na utovar", Thread.CurrentThread.Name);
+            Console.WriteLine("{0} ceka na utovar", Thread.CurrentThread.Name);  
             Semaphore.WaitOne();
             Console.WriteLine("{0} se utovara", Thread.CurrentThread.Name);
 
@@ -50,9 +54,43 @@ namespace DAN_XXXVII_Dejan_Prodanovic
             }
         }
 
-        public void StartDelivery()
-        {
+        
 
+        public void ChooseRoutesForTrucks(List<int>bestRoutes)
+        {
+            trucks.Clear();
+            int counter = 1;
+            foreach (var route in bestRoutes)
+            {
+                Thread thread = new Thread(() => StartDelivery(route));
+                thread.Name = String.Format("Kamion{0}", counter++);
+                trucks.Add(route, thread);
+                thread.Start();
+            }           
+            
+        }
+
+        public void StartDestinationThreads(List<int> bestRoutes)
+        {
+            int counter = 1;
+            foreach (var route in bestRoutes)
+            {
+                Thread thread = new Thread(() => DestinationWait());
+                thread.Name = String.Format("Destinacija{0}", counter++);
+                destinations.Add(route, thread);
+                thread.Start();
+            }
+        }
+
+        public void StartDelivery(int route)
+        {
+            Console.WriteLine("{0} je dobio rutu {1} i krece na odrediste {2}", Thread.CurrentThread.Name, route,
+                 destinations[route].Name);
+        }
+
+        public void DestinationWait( )
+        {
+            Console.WriteLine("{0} ceka ", Thread.CurrentThread.Name);
         }
     }
 }

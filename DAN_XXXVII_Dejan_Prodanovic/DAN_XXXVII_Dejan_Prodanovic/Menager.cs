@@ -35,7 +35,7 @@ namespace DAN_XXXVII_Dejan_Prodanovic
                 Monitor.Pulse(theLock);
                 
             }
-
+             
         }
 
         public void ChooseBestRoutes(out List<int> bestRoutes)
@@ -62,7 +62,7 @@ namespace DAN_XXXVII_Dejan_Prodanovic
 
 
             divisibleByThree.Sort();
-            bestRoutes = divisibleByThree.Take(10).Distinct().ToList();
+            bestRoutes = divisibleByThree.Distinct().Take(10).ToList();
 
             Console.WriteLine("Menadzer je odabrao najbolje rute a to su:");
 
