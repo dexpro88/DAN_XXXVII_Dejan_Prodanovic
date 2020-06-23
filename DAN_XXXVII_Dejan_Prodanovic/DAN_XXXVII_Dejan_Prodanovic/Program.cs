@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -9,66 +10,84 @@ namespace DAN_XXXVII_Dejan_Prodanovic
 {
     class Program
     {
-        public static Semaphore Semaphore { get; set; }
-        static Random timeRnd = new Random();
-        static int counter = 0;
 
-        public static void PrepareTrucks()
+        private static object theLock = new object();
+
+        static void GenerateRandomNumbers()
         {
-            for (int i = 1; i <= 10; i++)
+             
+            Random rnd = new Random();
+            if (File.Exists("../../Routes.txt"))
             {
-                Thread t = new Thread(new ParameterizedThreadStart(LoadOn));
-                t.Start(i);
+                System.IO.File.WriteAllText(@"../../Routes.txt", string.Empty);
             }
 
-           
+            lock (theLock)
+            {
+               
+                StreamWriter sw = File.AppendText("../../Routes.txt");
+                for (int i = 0; i < 1000; i++)
+                {
+                    int rndNumber = rnd.Next(1, 5001);          
+                    sw.WriteLine(rndNumber);
+                }
+                               
+                sw.Close();
+            }
+             
         }
-        public static void LoadOn(object o)
+
+        static void ChooseBestRoutes( out List<int> bestRoutes)
         {
-           
-            Console.WriteLine("Kamion {0} ceka na utovar", o);
-            Semaphore.WaitOne();
-            Console.WriteLine("Kamion {0} se utovara", o);
-            
-            Thread.Sleep(timeRnd.Next(500,5000));
-           
-            Console.WriteLine("Kamion {0} je zavrsio utovar", o);
-            counter++;
-            if (counter%2==0)
+            List<int> divisibleByThree = new List<int>();
+
+            using (StreamReader sr = new StreamReader("../../Routes.txt"))
             {
-                Semaphore.Release(2);
+                string line;
+
+                while ((line = sr.ReadLine()) != null)
+                {
+                    int number = Int32.Parse(line);
+                    if (number % 3== 0)
+                    {
+                        divisibleByThree.Add(number); ;
+                    }
+                }
             }
-            
-           
+
+            divisibleByThree.Sort();
+
+            bestRoutes = divisibleByThree.Take(10).Distinct().ToList();
 
         }
         static void Main(string[] args)
         {
+            
+
+            TruckLoad tl = new TruckLoad();
+
+            //tl.PrepareTrucks();
+
             List<int> randomNumbers = new List<int>();
-            List<int> divisibleByThree = new List<int>();
-            Random rnd = new Random();
+            List<int> bestRoutes = new List<int>();
 
-            Semaphore = new Semaphore(2,3);
-            PrepareTrucks();
-            for (int i = 0; i < 1000; i++)
+            Thread t1 = new Thread(()=>GenerateRandomNumbers());
+            Thread t2 = new Thread(() => ChooseBestRoutes(out bestRoutes));
+
+            t1.Start();
+            t1.Join();
+            
+            t2.Start();
+
+          
+            t2.Join();
+
+            foreach (var item in bestRoutes)
             {
-                randomNumbers.Add(rnd.Next(1,5001));
+                Console.WriteLine(item);
             }
 
-            foreach (var rnum in randomNumbers)
-            {
-                if (rnum%3 == 0)
-                {
-                    divisibleByThree.Add(rnum);
-                }
-            }
-            divisibleByThree.Sort();
- 
 
-            //for (int i = 0; i < 10; i++)
-            //{
-            //    Console.WriteLine(divisibleByThree[i]);  
-            //}
             Console.ReadLine();
         }
     }
