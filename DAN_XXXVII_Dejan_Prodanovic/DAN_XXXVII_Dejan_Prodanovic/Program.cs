@@ -40,7 +40,7 @@ namespace DAN_XXXVII_Dejan_Prodanovic
             truckLoad.PrepareTrucks(bestRoutes);
             Console.WriteLine();
             truckLoad.StartDestinationThreads(bestRoutes);
-            Console.WriteLine();
+           
             truckLoad.ChooseRoutesForTrucks(bestRoutes);
 
             Console.ReadLine();

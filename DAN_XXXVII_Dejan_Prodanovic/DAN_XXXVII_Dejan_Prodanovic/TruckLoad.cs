@@ -13,7 +13,7 @@ namespace DAN_XXXVII_Dejan_Prodanovic
         Random timeRnd = new Random();
         Dictionary<int,Thread> trucks = new Dictionary<int,Thread>();
         Dictionary<int,Thread> destinations = new Dictionary<int,Thread>();
-
+       
         static int counter = 0;
         bool isArrived = false;
         bool isLate = false;
@@ -62,7 +62,8 @@ namespace DAN_XXXVII_Dejan_Prodanovic
             int counter = 1;
             foreach (var route in bestRoutes)
             {
-                Thread thread = new Thread(() => StartDelivery(route));
+                object theLock = new object();
+                Thread thread = new Thread(() => StartDelivery(route, theLock));
                 thread.Name = String.Format("Kamion{0}", counter++);
                 trucks.Add(route, thread);
                 thread.Start();
@@ -75,22 +76,59 @@ namespace DAN_XXXVII_Dejan_Prodanovic
             int counter = 1;
             foreach (var route in bestRoutes)
             {
-                Thread thread = new Thread(() => DestinationWait());
+                object theLock = new object();
+                Thread thread = new Thread(() => DestinationWait(theLock));
                 thread.Name = String.Format("Destinacija{0}", counter++);
                 destinations.Add(route, thread);
                 thread.Start();
             }
         }
 
-        public void StartDelivery(int route)
+        public void StartDelivery(int route, object theLock)
         {
-            Console.WriteLine("{0} je dobio rutu {1} i krece na odrediste {2}", Thread.CurrentThread.Name, route,
-                 destinations[route].Name);
+            lock (theLock)
+            {
+                Console.WriteLine("{0} je dobio rutu {1} i krece na odrediste {2}", Thread.CurrentThread.Name, route,
+                destinations[route].Name);
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+
+                Monitor.Wait(theLock, 5000);
+                if (isLate)
+                {
+                    watch.Stop();
+
+                    Console.WriteLine("Zakasnio si jebiga");
+                    Console.WriteLine("Vracam se na odrediste");
+                    Thread.Sleep((int)watch.ElapsedMilliseconds);
+                    Console.WriteLine("Stigao sam na odrediste");
+                }
+                else
+                {
+                    watch.Stop();
+
+                    isArrived = true;
+                    Monitor.Pulse(theLock);
+                }
+            }
+           
         }
 
-        public void DestinationWait( )
+        public void DestinationWait(object theLock)
         {
-            Console.WriteLine("{0} ceka ", Thread.CurrentThread.Name);
+            lock (theLock)
+            {
+                Console.WriteLine("{0} ceka ", Thread.CurrentThread.Name);
+                Monitor.Wait(theLock, 3000);
+                if (isArrived)
+                {
+                    Console.WriteLine("Stigo si bog te jebo");
+                }
+                else
+                {
+                    isLate = true;
+                    Monitor.Pulse(theLock);
+                }
+            }
         }
     }
 }
