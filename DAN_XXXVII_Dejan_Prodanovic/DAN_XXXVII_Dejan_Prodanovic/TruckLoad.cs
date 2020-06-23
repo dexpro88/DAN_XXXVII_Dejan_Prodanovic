@@ -10,7 +10,8 @@ namespace DAN_XXXVII_Dejan_Prodanovic
     class TruckLoad
     {
         public static Semaphore Semaphore { get; set; }
-        static Random timeRnd = new Random();
+        Random timeRnd = new Random();
+        Thread[] trucks = new Thread[10];
         static int counter = 0;
 
         public TruckLoad()
@@ -20,30 +21,37 @@ namespace DAN_XXXVII_Dejan_Prodanovic
 
         public void PrepareTrucks()
         {
-            for (int i = 1; i <= 10; i++)
+            for (int i = 0; i < 10; i++)
             {
-                Thread t = new Thread(new ParameterizedThreadStart(LoadOn));
-                t.Start(i);
+                trucks[i] = new Thread(new ThreadStart(LoadOn));
+                trucks[i].Name = String.Format("Kamion{0}",i+1);
+                //Thread t = new Thread(new ParameterizedThreadStart(LoadOn));
+                trucks[i].Start();
             }
 
-
+            foreach (var truck in trucks)
+            {
+                truck.Join();
+            }
         }
-        public void LoadOn(object o)
+        public void LoadOn()
         {
-            Console.WriteLine("Kamion {0} ceka na utovar", o);
+            Console.WriteLine("{0} ceka na utovar", Thread.CurrentThread.Name);
             Semaphore.WaitOne();
-            Console.WriteLine("Kamion {0} se utovara", o);
+            Console.WriteLine("{0} se utovara", Thread.CurrentThread.Name);
 
             Thread.Sleep(timeRnd.Next(500, 5000));
 
-            Console.WriteLine("Kamion {0} je zavrsio utovar", o);
+            Console.WriteLine("{0} je zavrsio utovar", Thread.CurrentThread.Name);
             counter++;
             if (counter % 2 == 0)
             {
                 Semaphore.Release(2);
             }
+        }
 
-
+        public void StartDelivery()
+        {
 
         }
     }
