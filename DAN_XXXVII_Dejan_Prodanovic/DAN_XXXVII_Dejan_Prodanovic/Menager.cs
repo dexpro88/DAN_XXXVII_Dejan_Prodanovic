@@ -11,10 +11,21 @@ namespace DAN_XXXVII_Dejan_Prodanovic
     class Menager
     {
         private static object theLock = new object();
+        private static object announceLock = new object();
+        Random rnd = new Random();
+        List<int> generatedNumbers = new List<int>();
+        public List<int> bestRoutes = new List<int>();
+        List<int> potentialyBestRoutes = new List<int>();
+        bool menagerSignaled = false;
+        bool signaledBack = false;
 
+        /// <summary>
+        /// method that generates random numbers and writes them to file
+        /// it signals thread that chooses the best routes from generated numbers when it is done
+        /// </summary>
         public void GenerateRandomNumbers()
         {
-
+            Thread.Sleep(20);
             Random rnd = new Random();
             if (File.Exists("../../Routes.txt"))
             {
@@ -28,29 +39,39 @@ namespace DAN_XXXVII_Dejan_Prodanovic
                 for (int i = 0; i < 1000; i++)
                 {
                     int rndNumber = rnd.Next(1, 5001);
+                    generatedNumbers.Add(rndNumber);
                     sw.WriteLine(rndNumber);
                 }
 
                 sw.Close();
+                
                 Monitor.Pulse(theLock);
                 
             }
              
         }
 
-        public void ChooseBestRoutes(out List<int> bestRoutes)
+        /// <summary>
+        /// method that chooses best rootes from the 1000 random numbers from file
+        /// best routes are smallest numbers divisible by 3 that have to be unique
+        /// when it's done it sends signal to thread that has to announce the best routes to user
+        /// </summary>
+        /// <param name="bestRoutes"></param>
+        public void ChooseBestRoutes()
         {
             List<int> divisibleByThree = new List<int>();
-
+             
             lock (theLock)
             {
-                Monitor.Wait(theLock, 3000);
+                Monitor.Wait(theLock, 100000);
+                
                 using (StreamReader sr = new StreamReader("../../Routes.txt"))
                 {
                     string line;
 
                     while ((line = sr.ReadLine()) != null)
                     {
+                      
                         int number = Int32.Parse(line);
                         if (number % 3 == 0)
                         {
@@ -58,19 +79,56 @@ namespace DAN_XXXVII_Dejan_Prodanovic
                         }
                     }
                 }
+
+                divisibleByThree.Sort();
+                bestRoutes = divisibleByThree.Distinct().Take(10).ToList();
+                
             }
-
-
-            divisibleByThree.Sort();
-            bestRoutes = divisibleByThree.Distinct().Take(10).ToList();
-
-            Console.WriteLine("Menadzer je odabrao najbolje rute a to su:");
-
-            foreach (var item in bestRoutes)
+           
+            //here we are sending signal to thread that performs MenagerAnnounceTheBestRoutes method
+            lock (announceLock)
             {
-                Console.WriteLine(item);
+                menagerSignaled = true; 
+                Monitor.Pulse(announceLock);
+
+                if (signaledBack)
+                {
+                    bestRoutes = potentialyBestRoutes;
+                }
             }
 
         }
+        /// <summary>
+        /// method that informs user about the choosen routes
+        /// in case that it waited more than 3s for signal it will choose 10 random numbers 
+        /// from 1000 numbers that we generated before to be the best routes
+        /// </summary>
+        public void MenagerAnnounceTheBestRoutes()
+        {          
+            lock (announceLock)
+            {
+                Monitor.Wait(announceLock, 3000);
+                if (menagerSignaled)
+                {
+                    Console.WriteLine("Menadzer je odabrao najbolje rute a to su:");
+                    foreach (var item in bestRoutes)
+                    {
+                        Console.WriteLine(item);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Menadzer je odabrao najbolje rute a to su:");
+                    potentialyBestRoutes = generatedNumbers.OrderBy(x => rnd.Next()).Take(10).ToList();
+                    foreach (var item in potentialyBestRoutes)
+                    {
+                        Console.WriteLine(item);
+                    }
+                    signaledBack = true;
+                }
+
+            }
+        }
     }
+  
 }
