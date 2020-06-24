@@ -14,6 +14,9 @@ namespace DAN_XXXVII_Dejan_Prodanovic
         Dictionary<int,Thread> trucks = new Dictionary<int,Thread>();
         Dictionary<int,Thread> destinations = new Dictionary<int,Thread>();
        
+        static Dictionary<int, bool> isTruckArrivedIndicators = new Dictionary<int, bool>();
+        static Dictionary<int, bool> isTruckLateIndicators = new Dictionary<int, bool> ();
+        static Dictionary<int, object> locks = new Dictionary<int, object>();
         static int counter = 0;
         bool isArrived = false;
         bool isLate = false;
@@ -21,6 +24,7 @@ namespace DAN_XXXVII_Dejan_Prodanovic
         public TruckLoad()
         {
             Semaphore = new Semaphore(2, 3);
+           
         }
 
         public void PrepareTrucks(List<int> bestRoutes)
@@ -60,73 +64,91 @@ namespace DAN_XXXVII_Dejan_Prodanovic
         {
             trucks.Clear();
             int counter = 1;
+            
             foreach (var route in bestRoutes)
             {
-                object theLock = new object();
-                Thread thread = new Thread(() => StartDelivery(route, theLock));
+                
+               
+                int timeOfDelivery = timeRnd.Next(500, 5000);
+             
+
+                Thread thread = new Thread(() => StartDelivery(route, timeOfDelivery));
                 thread.Name = String.Format("Kamion{0}", counter++);
                 trucks.Add(route, thread);
-                thread.Start();
-            }           
+               
+            }
+            foreach (var thread in trucks)
+            {
+                thread.Value.Start();
+            }
             
         }
 
         public void StartDestinationThreads(List<int> bestRoutes)
         {
             int counter = 1;
+            
             foreach (var route in bestRoutes)
             {
                 object theLock = new object();
-                Thread thread = new Thread(() => DestinationWait(theLock));
+                locks.Add(route, theLock);
+                isTruckArrivedIndicators.Add(route, false);
+                isTruckLateIndicators.Add(route, false);
+                Thread thread = new Thread(() => DestinationWait(route));
                 thread.Name = String.Format("Destinacija{0}", counter++);
                 destinations.Add(route, thread);
                 thread.Start();
             }
         }
 
-        public void StartDelivery(int route, object theLock)
+        public void StartDelivery(int route,int timeOfDelivery)
         {
-            lock (theLock)
+           
+            lock (locks[route])
             {
-                Console.WriteLine("{0} je dobio rutu {1} i krece na odrediste {2}", Thread.CurrentThread.Name, route,
-                destinations[route].Name);
+                
+                Console.WriteLine("{0} je dobio rutu {1} i krece na odrediste {2}." +
+                    " Krenuo sam i dolazim za {3}", Thread.CurrentThread.Name, route,
+                destinations[route].Name, timeOfDelivery);
                 var watch = System.Diagnostics.Stopwatch.StartNew();
 
-                Monitor.Wait(theLock, 5000);
-                if (isLate)
+                Monitor.Wait(locks[route], timeOfDelivery);
+                if (isTruckLateIndicators[route])
                 {
                     watch.Stop();
 
-                    Console.WriteLine("Zakasnio si jebiga");
-                    Console.WriteLine("Vracam se na odrediste");
+                    Console.WriteLine("\n{0} - {1} je zakasinio na odrediste", destinations[route].Name,
+                        trucks[route].Name);
+                    Console.WriteLine("{0} - Vracam se na pocetnu tacku\n",trucks[route].Name);
                     Thread.Sleep((int)watch.ElapsedMilliseconds);
-                    Console.WriteLine("Stigao sam na odrediste");
+                    Console.WriteLine("{0} - Stigao sam na pocetnu tacku", trucks[route].Name);
                 }
                 else
                 {
                     watch.Stop();
 
-                    isArrived = true;
-                    Monitor.Pulse(theLock);
+                    isTruckArrivedIndicators[route] = true;
+                    Monitor.Pulse(locks[route]);
                 }
             }
            
         }
 
-        public void DestinationWait(object theLock)
+        public void DestinationWait(int route)
         {
-            lock (theLock)
+            lock (locks[route])
             {
                 Console.WriteLine("{0} ceka ", Thread.CurrentThread.Name);
-                Monitor.Wait(theLock, 3000);
-                if (isArrived)
+                Monitor.Wait(locks[route], 3000);
+                if (isTruckArrivedIndicators[route])
                 {
-                    Console.WriteLine("Stigo si bog te jebo");
+                    Console.WriteLine("\n{0} - {1} je stigao na odrediste",destinations[route].Name,
+                        trucks[route].Name);
                 }
                 else
                 {
-                    isLate = true;
-                    Monitor.Pulse(theLock);
+                    isTruckLateIndicators[route] = true;
+                    Monitor.Pulse(locks[route]);
                 }
             }
         }
